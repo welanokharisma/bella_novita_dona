@@ -602,7 +602,7 @@
 
 <script>
   // 🚨 URL APPS SCRIPT ANDA SUDAH DITAMBAHKAN DI SINI (URL Terbaru)
-  const API_URL = 'https://script.google.com/macros/s/AKfycbw4lOK-sVNqHfSoTBPzoZ5eZSRBehHYeTxe3QEDhX3TikbUfN4gAAAg8gzJVr9piL7a/exec'; 
+  const API_URL = 'https://script.google.com/macros/s/AKfycbzGGreoAhA0P8Q1fkI3Uw4SH4hOmAoZBYk4AXDE0KAzU4L0TMsgatwTscNgJHs7EFbg/exec'; 
 
   let currentPeriod = new Date().toISOString().substring(0, 7); 
   let currentEdit = {};
@@ -617,40 +617,27 @@
   // ---------------------------------------------------------------------- 
   // FUNGSI FETCH API BARU (Menggantikan google.script.run)
   // ----------------------------------------------------------------------
-  async function fetchAPICall(action, data = {}, successHandler, failureHandler) {
-      try {
-          const response = await fetch(API_URL, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-              // Kirim 'action' dan 'data' ke fungsi doPost di Apps Script
-              body: JSON.stringify({ action, data }),
-          });
+  
+  async function fetchAPICall(action, data = {}) {
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, data })
+    });
 
-          if (!response.ok) {
-              // Menangkap error HTTP 
-              throw new Error(`HTTP error! status: ${response.status} (${response.statusText})`);
-          }
-          
-          const result = await response.json();
-          
-          // Memastikan balasan dari Apps Script adalah format JSON
-          if (result && result.success === false) {
-              if (failureHandler) {
-                  failureHandler(result.message);
-              } else {
-                   // Default failure handler jika tidak disediakan
-                   showSnackbar(result.message || `Gagal menjalankan aksi ${action}.`, true);
-              }
-              return;
-          }
-
-          if (successHandler) {
-              successHandler(result);
-          }
-          
-      } catch (error) {
+    if (!res.ok) throw new Error('Server error: ' + res.status);
+    const result = await res.json();
+    if (!result.success) throw new Error(result.message || 'Gagal');
+    return result;
+  } catch (err) {
+    console.error(`Error during API call for ${action}:`, err);
+    alert(`Gagal konek ke server (${action}): ${err.message}`);
+    return { success: false, message: err.message };
+  }
+}
+  catch (error) {
           console.error(`Error during API call for ${action}:`, error);
           if (failureHandler) {
               failureHandler(error.message || "Request gagal.");
