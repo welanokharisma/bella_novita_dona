@@ -6,7 +6,6 @@
   <title>Budgetin</title>
   <script src="https://www.gstatic.com/charts/loader.js"></script>
   <style>
-    /* ... (CSS DIBIARKAN SAMA SEPERTI SEBELUMNYA) ... */
     /* ---------------------------------------------------------------------- */
     /* 1. DEFINISI TEMA */
     /* ---------------------------------------------------------------------- */
@@ -601,9 +600,12 @@
   <div id="snackbar"></div>
 
 <script>
-  // 🚨 URL APPS SCRIPT ANDA SUDAH DITAMBAHKAN DI SINI (URL Terbaru)
-  const API_URL = 'https://script.google.com/macros/s/AKfycbzGGreoAhA0P8Q1fkI3Uw4SH4hOmAoZBYk4AXDE0KAzU4L0TMsgatwTscNgJHs7EFbg/exec'; 
+  // ==========================
+  // CONFIG: GANTI HANYA API_URL
+  // ==========================
+  const API_URL = "https://script.google.com/macros/s/AKfycbwzNfdRqUWK8BnAJfjrZLAK32S5IZPa0I3L1Z_OuYP3LryvlgGJhhSV2djZnptE9d77/exec";
 
+  // State
   let currentPeriod = new Date().toISOString().substring(0, 7); 
   let currentEdit = {};
   let expenseDataByCat = {};
@@ -614,52 +616,35 @@
   let currentPageInc = 1;
   const ITEMS_PER_PAGE = 10; 
 
-  // ---------------------------------------------------------------------- 
-  // FUNGSI FETCH API BARU (Menggantikan google.script.run)
-  // ----------------------------------------------------------------------
-  
-  async function fetchAPICall(action, data = {}) {
-  try {
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action, data })
-    });
-
-    if (!res.ok) throw new Error('Server error: ' + res.status);
-    const result = await res.json();
-    if (!result.success) throw new Error(result.message || 'Gagal');
-    return result;
-  } catch (err) {
-    console.error(`Error during API call for ${action}:`, err);
-    alert(`Gagal konek ke server (${action}): ${err.message}`);
-    return { success: false, message: err.message };
-  }
-}
-  catch (error) {
-          console.error(`Error during API call for ${action}:`, error);
-          if (failureHandler) {
-              failureHandler(error.message || "Request gagal.");
-          } else {
-              // 🚨 Ini adalah pesan yang mungkin Anda lihat: 
-              // Jika "Failed to fetch" (umumnya terkait CORS)
-              showSnackbar(`Kesalahan koneksi atau server: ${error.message}`, true); 
-          }
+  // ==========================
+  // UTIL: panggil server (fetch)
+  // ==========================
+  async function callServer(action, payload = {}) {
+    try {
+      const body = Object.assign({ action }, payload);
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        // Kalau server memberikan non-JSON (undefined), kembalikan null
+        console.warn("Non-JSON response:", text);
+        return null;
       }
+    } catch (err) {
+      console.error("Fetch error:", err);
+      showSnackbar("Gagal menghubungkan ke server: " + err.message, true);
+      return null;
+    }
   }
 
-  // ---------------------------------------------------------------------- 
-  // UTILITY & TEMA FUNCTIONS
-  // ----------------------------------------------------------------------
-  
-  function formatBudgetPeriod(period) {
-      if (!period || period.length !== 7) return period;
-      const [year, month] = period.split('-');
-      const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-      return `${monthNames[parseInt(month) - 1]} ${year}`;
-  }
-
+  // ==========================
+  // Inisialisasi
+  // ==========================
   window.onload = function() {
     const today = new Date().toISOString().substring(0, 10);
     document.getElementById('expDate').value = today;
@@ -683,6 +668,9 @@
     });
   };
 
+  // ---------------------------------------------------------------------- 
+  // FUNGSI TEMA & UTILITAS 
+  // ----------------------------------------------------------------------
   function loadThemePreference() {
       const savedTheme = localStorage.getItem('appTheme') || 'ungu-mint'; 
       setTheme(savedTheme, false); 
@@ -702,13 +690,14 @@
           themeName = 'ungu-mint'; 
       }
       
+      // Update radio button selection
       document.querySelectorAll('input[name="appTheme"]').forEach(radio => {
           radio.checked = radio.value === themeName;
       });
       
       if (themeName === 'vibrant' || themeName === 'classic') {
           body.classList.remove('dark-mode');
-          document.getElementById('darkModeToggle').textContent = '☀️ Light Mode'; 
+          document.getElementById('darkModeToggle').textContent = '☀️ Light Mode';
       }
 
       if (save) {
@@ -747,13 +736,15 @@
       return new Intl.NumberFormat('id-ID', {minimumFractionDigits: 0}).format(clean);
   }
   const cleanNumber = (numStr) => {
-      return numStr.toString().replace(/[^0-9]/g, '');
+      return numStr === undefined || numStr === null ? '' : numStr.toString().replace(/[^0-9]/g, '');
   }
   function formatCurrencyInput(event) {
       let input = event.target;
       let cleanValue = cleanNumber(input.value);
       if (cleanValue) {
           input.value = formatRupiah(cleanValue);
+      } else {
+          input.value = '';
       }
   }
 
@@ -789,6 +780,16 @@
     }, 3000);
   }
 
+  // ==========================
+  // Period helper (client-side)
+  // ==========================
+  function formatBudgetPeriod(period) {
+    if (!period || period.length !== 7) return period;
+    const [year, month] = period.split('-');
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+    return `${monthNames[parseInt(month,10) - 1]} ${year}`;
+  }
+
   function loadPeriods() {
     const now = new Date();
     const currentMonth = now.toISOString().substring(0, 7);
@@ -808,9 +809,7 @@
       sortedPeriods.forEach(p => {
         const option = document.createElement('option');
         option.value = p;
-        // Menggunakan fungsi lokal, bukan API call
-        option.textContent = formatBudgetPeriod(p); 
-        
+        option.textContent = formatBudgetPeriod(p);
         if (p === currentMonth) {
           option.selected = true;
           currentPeriod = p;
@@ -832,13 +831,13 @@
     refreshAll();
   }
 
-  function refreshAll() {
-    loadTotals();
-    loadTransactions();
-    loadCategoriesList(); 
-    loadFormOptions(); 
-    loadAccountOptions(); 
-    loadExpenseSummaryForBudget(); 
+  async function refreshAll() {
+    await loadTotals();
+    await loadTransactions();
+    await loadCategoriesList(); 
+    await loadFormOptions(); 
+    await loadAccountOptions(); 
+    await loadExpenseSummaryForBudget(); 
     
     if (document.getElementById('dashboard').classList.contains('active')) {
         drawCharts();
@@ -848,146 +847,149 @@
     }
   }
 
-  // ---------------------------------------------------------------------- 
-  // DASHBOARD & BUDGET LOGIC
-  // ----------------------------------------------------------------------
-
-  function loadTotals() {
-    fetchAPICall('getTotals', { period: currentPeriod }, result => {
+  // ==========================
+  // Data loading (menggunakan callServer)
+  // ==========================
+  async function loadTotals() {
+    const result = await callServer("getTotals", { period: currentPeriod });
+    if (result) {
       document.getElementById('totalIncome').textContent = 'Rp' + formatRupiah(result.totalIncome);
       document.getElementById('totalExpense').textContent = 'Rp' + formatRupiah(result.totalExpense);
       document.getElementById('netBalance').textContent = 'Rp' + formatRupiah(result.netBalance);
-    });
+    }
   }
   
-  function loadExpenseSummaryForBudget() {
-      fetchAPICall('getExpenseByCategory', { period: currentPeriod }, result => {
-          expenseDataByCat = {};
-          for(let i = 1; i < result.length; i++) {
+  async function loadExpenseSummaryForBudget() {
+      const result = await callServer("getExpenseByCategory", { period: currentPeriod });
+      expenseDataByCat = {};
+      if (Array.isArray(result)) {
+          for (let i = 1; i < result.length; i++) {
               if (result[i][0] !== 'Belum ada Pengeluaran') {
                   expenseDataByCat[result[i][0]] = result[i][1];
               }
           }
-          loadBudgetStatus();
-      });
+      }
+      await loadBudgetStatus();
   }
 
-  function loadBudgetStatus() {
-      fetchAPICall('getBudgetByCategory', { period: currentPeriod }, budgetData => {
-          const table = document.getElementById('categoryBudgetStatus');
-          let html = `<tbody>`; 
-          let totalLimit = 0;
-          let totalUsed = 0;
+  async function loadBudgetStatus() {
+      const budgetData = await callServer("getBudgetByCategory", { period: currentPeriod });
+      const table = document.getElementById('categoryBudgetStatus');
+      if (!budgetData) return;
+      let html = '';
+      let totalLimit = 0;
+      let totalUsed = 0;
 
-          budgetData.forEach(item => {
-              const used = expenseDataByCat[item.category] || 0;
-              const limit = item.limit;
-              const remaining = limit - used;
-              const percentage = (limit > 0) ? (used / limit) * 100 : 0;
-              
-              totalLimit += limit;
-              totalUsed += used;
-
-              let statusClass = 'status-ok';
-              let statusText = `Sisa Rp${formatRupiah(remaining)}`;
-
-              if (limit === 0) {
-                  statusClass = 'status-warn';
-                  statusText = 'Belum Disetel';
-              } else if (used > limit) {
-                  statusClass = 'status-alert';
-                  statusText = `❌ Lebih Rp${formatRupiah(used - limit)}`;
-              } else if (percentage >= 90 && percentage < 100) {
-                  statusClass = 'status-warn';
-                  statusText = `⚠️ Hampir Habis (Sisa Rp${formatRupiah(remaining)})`;
-              }
-              
-              html += `<tr>
-                  <td>${item.category}</td>
-                  <td>Rp${formatRupiah(limit)}</td>
-                  <td>Rp${formatRupiah(used)}</td>
-                  <td class="${statusClass}">${statusText}</td>
-              </tr>`;
-          });
+      budgetData.forEach(item => {
+          const used = expenseDataByCat[item.category] || 0;
+          const limit = item.limit || 0;
+          const remaining = limit - used;
+          const percentage = (limit > 0) ? (used / limit) * 100 : 0;
           
-          let grandStatusClass = 'status-ok';
-          let grandStatusText = `Sisa: Rp${formatRupiah(totalLimit - totalUsed)}`;
-          if (totalLimit === 0 && totalUsed > 0) {
-               grandStatusClass = 'status-warn';
-               grandStatusText = 'Budget Total Belum Disetel';
-          } else if (totalUsed > totalLimit && totalLimit > 0) {
-              grandStatusClass = 'status-alert';
-              grandStatusText = `LEBIH: Rp${formatRupiah(totalUsed - totalLimit)}`;
-          } else if (totalUsed === 0 && totalLimit === 0) {
-               grandStatusClass = '';
-               grandStatusText = 'Belum Ada Transaksi';
+          totalLimit += limit;
+          totalUsed += used;
+
+          let statusClass = 'status-ok';
+          let statusText = `Sisa Rp${formatRupiah(remaining)}`;
+
+          if (limit === 0) {
+              statusClass = 'status-warn';
+              statusText = 'Belum Disetel';
+          } else if (used > limit) {
+              statusClass = 'status-alert';
+              statusText = `❌ Lebih Rp${formatRupiah(used - limit)}`;
+          } else if (percentage >= 90 && percentage < 100) {
+              statusClass = 'status-warn';
+              statusText = `⚠️ Hampir Habis (Sisa Rp${formatRupiah(remaining)})`;
           }
           
-          const grandTotalTextColor = document.body.classList.contains('theme-vibrant') || document.body.classList.contains('theme-classic') || document.body.classList.contains('dark-mode') ? 'var(--text-color)' : 'var(--color-dark-text)';
-
-          html += `<tfoot>
-              <tr>
-                  <th style="text-align: left;">TOTAL</th>
-                  <th>Rp${formatRupiah(totalLimit)}</th>
-                  <th>Rp${formatRupiah(totalUsed)}</th>
-                  <th class="${grandStatusClass}" style="color: ${grandTotalTextColor};">${grandStatusText}</th>
-              </tr>
-          </tfoot>`;
-
-          table.querySelector('tbody').innerHTML = html; 
-
+          html += `<tr>
+              <td>${escapeHtml(item.category)}</td>
+              <td>Rp${formatRupiah(limit)}</td>
+              <td>Rp${formatRupiah(used)}</td>
+              <td class="${statusClass}">${statusText}</td>
+          </tr>`;
       });
+
+      let grandStatusClass = 'status-ok';
+      let grandStatusText = `Sisa: Rp${formatRupiah(totalLimit - totalUsed)}`;
+      if (totalLimit === 0 && totalUsed > 0) {
+           grandStatusClass = 'status-warn';
+           grandStatusText = 'Budget Total Belum Disetel';
+      } else if (totalUsed > totalLimit && totalLimit > 0) {
+          grandStatusClass = 'status-alert';
+          grandStatusText = `LEBIH: Rp${formatRupiah(totalUsed - totalLimit)}`;
+      } else if (totalUsed === 0 && totalLimit === 0) {
+           grandStatusClass = '';
+           grandStatusText = 'Belum Ada Transaksi';
+      }
+      
+      const grandTotalTextColor = document.body.classList.contains('theme-vibrant') || document.body.classList.contains('theme-classic') || document.body.classList.contains('dark-mode') ? 'var(--text-color)' : 'var(--color-dark-text)';
+
+      html += `<tfoot>
+          <tr>
+              <th style="text-align: left;">TOTAL</th>
+              <th>Rp${formatRupiah(totalLimit)}</th>
+              <th>Rp${formatRupiah(totalUsed)}</th>
+              <th class="${grandStatusClass}" style="color: ${grandTotalTextColor};">${grandStatusText}</th>
+          </tr>
+      </tfoot>`;
+
+      // Pastikan tbody ada lalu set innerHTML
+      const tbody = table.querySelector('tbody');
+      if (tbody) {
+        tbody.innerHTML = html;
+      }
   }
 
-  function loadBudgetByCategory(period) {
-    // Panggil 1: Dapatkan ringkasan pengeluaran
-    fetchAPICall('getExpenseByCategory', { period }, expenseSummary => {
-        let expenseMap = {};
+  async function loadBudgetByCategory(period) {
+    const expenseSummary = await callServer("getExpenseByCategory", { period });
+    const expenseMap = {};
+    if (Array.isArray(expenseSummary)) {
         for(let i = 1; i < expenseSummary.length; i++) {
             if (expenseSummary[i][0] !== 'Belum ada Pengeluaran') {
                 expenseMap[expenseSummary[i][0]] = expenseSummary[i][1];
             }
         }
+    }
 
-        // Panggil 2 (Nested): Dapatkan data budget
-        fetchAPICall('getBudgetByCategory', { period }, budgetData => {
-            const table = document.getElementById('budgetCategoryTable');
-            let html = `<tbody>`;
+    const budgetData = await callServer("getBudgetByCategory", { period });
+    const table = document.getElementById('budgetCategoryTable');
+    let html = '';
 
-            if (budgetData.length === 0) {
-                html += `<tr><td colspan="3">Tidak ada Kategori Pengeluaran yang ditemukan. Tambahkan di tab Pengaturan.</td></tr>`;
-            }
+    if (!budgetData || budgetData.length === 0) {
+        html += `<tr><td colspan="3">Tidak ada Kategori Pengeluaran yang ditemukan. Tambahkan di tab Pengaturan.</td></tr>`;
+    } else {
+        budgetData.forEach(item => {
+            const used = expenseMap[item.category] || 0;
+            html += `<tr>
+                <td>${escapeHtml(item.category)}</td>
+                <td>
+                    <input type="text" class="currency-input" name="${escapeAttr(item.category)}" value="${formatRupiah(item.limit)}" min="0" placeholder="0" style="width: 100px; text-align: center;">
+                </td>
+                <td style="color: var(--expense-color); font-weight: bold;">Rp${formatRupiah(used)}</td>
+            </tr>`;
+        });
+    }
 
-            budgetData.forEach(item => {
-                const used = expenseMap[item.category] || 0;
-                
-                html += `<tr>
-                    <td>${item.category}</td>
-                    <td>
-                        <input type="text" class="currency-input" name="${item.category}" value="${formatRupiah(item.limit)}" min="0" placeholder="0" style="width: 100px; text-align: center;">
-                    </td>
-                    <td style="color: var(--expense-color); font-weight: bold;">Rp${formatRupiah(used)}</td>
-                </tr>`;
-            });
+    const tbody = table.querySelector('tbody');
+    if (tbody) tbody.innerHTML = html;
 
-            table.querySelector('tbody').innerHTML = html;
-            
-            // Re-attach currency listeners to new inputs
-            document.querySelectorAll('#budgetCategoryTable .currency-input').forEach(input => {
-                input.addEventListener('input', formatCurrencyInput);
-                input.addEventListener('focus', function() {
-                    this.value = cleanNumber(this.value);
-                });
-                input.addEventListener('blur', function() {
-                    if(this.value) this.value = formatRupiah(this.value);
-                });
-            });
+    // Re-attach currency listeners to new inputs
+    document.querySelectorAll('#budgetCategoryTable .currency-input').forEach(input => {
+        input.addEventListener('input', formatCurrencyInput);
+        input.addEventListener('focus', function() {
+            this.value = cleanNumber(this.value);
+        });
+        input.addEventListener('blur', function() {
+            if(this.value) this.value = formatRupiah(this.value);
         });
     });
   }
   
+  // Budget form submit
   const budgetForm = document.getElementById('budgetForm');
-  budgetForm.onsubmit = e => {
+  budgetForm.onsubmit = async e => {
       e.preventDefault();
       const period = document.getElementById('periodBudget').value;
       const inputs = e.target.querySelectorAll('input.currency-input');
@@ -1000,45 +1002,37 @@
            return;
       }
 
-      inputs.forEach(input => {
-          if (hasError) return;
-          
+      for (const input of inputs) {
+          if (hasError) break;
           const category = input.name;
-          const limit = cleanNumber(input.value); 
-          
-          fetchAPICall('updateBudgetByCategory', { period, category, limit }, 
-              result => {
-                  successCount++;
-                  if (!result.success) {
-                      showSnackbar(`Gagal update ${category}: ${result.message}`, true);
-                      hasError = true;
-                  }
-                  
-                  if (successCount === totalToUpdate && !hasError) {
-                      showSnackbar('Semua Budget berhasil diperbarui!');
-                      refreshAll(); 
-                  }
-              },
-              err => {
-                   showSnackbar(`Gagal update ${category}: ${err}`, true);
-                   hasError = true;
-              }
-          );
-      });
+          const limit = Number(cleanNumber(input.value)) || 0;
+          const result = await callServer("updateBudgetByCategory", { period, category, limit });
+          if (!result || !result.success) {
+              showSnackbar(`Gagal update ${category}: ${result?.message || 'Error'}`, true);
+              hasError = true;
+              break;
+          }
+          successCount++;
+      }
+
+      if (!hasError) {
+          showSnackbar('Semua Budget berhasil diperbarui!');
+          refreshAll(); 
+      }
   };
 
-  // ---------------------------------------------------------------------- 
-  // TRANSAKSI LOGIC (CRUD & VIEW)
-  // ----------------------------------------------------------------------
 
-  function loadTransactions() {
-    fetchAPICall('getTransactions', { period: currentPeriod }, result => {
-      allExpenseData = result.expData;
-      allIncomeData = result.incData;
-      
-      goToPage(1, 'Expense');
-      goToPage(1, 'Income');
-    });
+  // ==========================
+  // TRANSAKSI (load, paging, render)
+  // ==========================
+  async function loadTransactions() {
+    const result = await callServer("getTransactions", { period: currentPeriod });
+    if (!result) return;
+    allExpenseData = result.expData || [];
+    allIncomeData = result.incData || [];
+    
+    goToPage(1, 'Expense');
+    goToPage(1, 'Income');
   }
 
   function goToPage(page, type) {
@@ -1105,14 +1099,13 @@
       }
   }
 
-
   function renderTable(tableElement, headers, data, type) {
     let html = '<thead><tr>';
     const visibleHeaders = ['Tanggal', 'Kategori', 'Akun', 'Jumlah', 'Deskripsi', 'Aksi']; 
     visibleHeaders.forEach(h => html += `<th>${h}</th>`);
     html += '</tr></thead><tbody>';
 
-    if (data.length === 0) {
+    if (!data || data.length === 0) {
         html += `<tr><td colspan="${visibleHeaders.length}">Belum ada transaksi di bulan ${currentPeriod}.</td></tr>`;
     } else {
         data.forEach(row => {
@@ -1123,12 +1116,12 @@
             
             html += `<tr>
               <td>${formattedDate}</td>
-              <td>${categoryOrSource}</td>
-              <td>${account}</td>
+              <td>${escapeHtml(categoryOrSource)}</td>
+              <td>${escapeHtml(account)}</td>
               <td style="color: ${rowType === 'Expense' ? 'var(--expense-color)' : 'var(--income-color)'}; font-weight: bold;">${formattedAmount}</td>
-              <td>${desc}</td>
+              <td>${escapeHtml(desc)}</td>
               <td>
-                <button onclick="openEditModal('${type}', ${rowIndex}, '${date}', '${categoryOrSource.replace(/'/g, "\\'")}', '${account.replace(/'/g, "\\'")}', ${amount}, '${desc.replace(/'/g, "\\'")}')">Edit</button>
+                <button onclick="openEditModal('${type}', ${rowIndex}, '${escapeJs(date)}', '${escapeJs(categoryOrSource)}', '${escapeJs(account)}', ${amount}, '${escapeJs(desc)}')">Edit</button>
                 <button onclick="delTx('${type === 'Expense' ? 'Expenses' : 'Income'}', ${rowIndex})" class="expense-btn" style="margin-left: 5px;">Hapus</button>
               </td>
             </tr>`;
@@ -1158,20 +1151,22 @@
       });
   }
 
-  
-  function openEditModal(sheet, index, date, categoryOrSource, account, amount, desc) {
+  // ==========================
+  // EDIT / DELETE
+  // ==========================
+  async function openEditModal(sheet, index, date, categoryOrSource, account, amount, desc) {
     currentEdit = { sheet: sheet + 's', index, originalAccount: account }; 
-    editDate.value = date; 
-    editCategory.value = categoryOrSource;
-    editAmount.value = formatRupiah(amount); 
-    editDesc.value = desc;
+    document.getElementById('editDate').value = date; 
+    document.getElementById('editCategory').value = categoryOrSource;
+    document.getElementById('editAmount').value = formatRupiah(amount); 
+    document.getElementById('editDesc').value = desc;
     
-    // Panggil API untuk mendapatkan daftar Akun
-    fetchAPICall('getAccounts', {}, accounts => {
-        const select = document.getElementById('editAccount');
-        select.innerHTML = accounts.map(a => `<option value="${a}">${a}</option>`).join('');
-        select.value = account;
-    });
+    const accounts = await callServer("getAccounts");
+    const select = document.getElementById('editAccount');
+    if (Array.isArray(accounts)) {
+      select.innerHTML = accounts.map(a => `<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join('');
+      select.value = account;
+    }
     
     document.getElementById('editModal').style.display = 'block';
   }
@@ -1181,248 +1176,182 @@
   }
 
   const editForm = document.getElementById('editForm');
-  editForm.onsubmit = e => {
+  editForm.onsubmit = async e => {
       e.preventDefault();
-      const rawAmount = cleanNumber(editAmount.value); 
-      if (rawAmount <= 0) {
+      const rawAmount = Number(cleanNumber(document.getElementById('editAmount').value)); 
+      if (!rawAmount || rawAmount <= 0) {
           showSnackbar("Jumlah harus berupa angka positif.", true);
           return;
       }
       
-      const newAccount = editAccount.value; 
+      const newAccount = document.getElementById('editAccount').value; 
       
-      const values = [editDate.value, editCategory.value, newAccount, rawAmount, editDesc.value]; 
+      const values = [document.getElementById('editDate').value, document.getElementById('editCategory').value, newAccount, rawAmount, document.getElementById('editDesc').value]; 
 
-      fetchAPICall('updateTransaction', { 
-            sheetName: currentEdit.sheet, 
-            rowIndex: currentEdit.index, 
-            values 
-        },
-        result => {
-          if (result.success) {
-              showSnackbar(result.message);
-              refreshAll();
-              closeEditModal();
-          } else {
-              showSnackbar(result.message, true);
-          }
-        },
-        err => {
-             showSnackbar('Gagal memperbarui Transaksi: ' + err, true);
-        }
-      );
+      const result = await callServer("updateTransaction", { sheetName: currentEdit.sheet, index: currentEdit.index, values });
+      if (result && result.success) {
+          showSnackbar(result.message || 'Transaksi berhasil diperbarui.');
+          refreshAll();
+          closeEditModal();
+      } else {
+          showSnackbar(result?.message || 'Gagal update transaksi', true);
+      }
   };
   
-  function delTx(sheetName, index) {
+  async function delTx(sheetName, index) {
     if (!confirm('Hapus transaksi?')) return;
-    fetchAPICall('deleteTransaction', { sheetName, rowIndex: index }, () => {
-        showSnackbar('Transaksi dihapus');
-        refreshAll();
-    }, err => {
-        showSnackbar('Gagal menghapus Transaksi: ' + err, true);
-    });
+    await callServer("deleteTransaction", { sheetName, row: index });
+    showSnackbar('Transaksi dihapus');
+    refreshAll();
   }
 
-  // Submit Transaksi Baru 
+  // ==========================
+  // SUBMIT BARU (expense / income)
+  // ==========================
   const expenseForm = document.getElementById('expenseForm');
-  expenseForm.onsubmit = e => {
+  expenseForm.onsubmit = async e => {
       e.preventDefault();
       const date = document.getElementById('expDate').value;
       const category = document.getElementById('expCategory').value;
       const account = document.getElementById('expAccount').value; 
-      const rawAmount = cleanNumber(document.getElementById('expAmount').value); 
+      const rawAmount = Number(cleanNumber(document.getElementById('expAmount').value)); 
       const desc = document.getElementById('expDesc').value;
       
-      fetchAPICall('addExpense', { 
-            date, 
-            category, 
-            account, 
-            amount: rawAmount, 
-            description: desc 
-        },
-          result => {
-              if (result.success) {
-                  showSnackbar(result.message);
-                  refreshAll(); 
-                  expenseForm.reset(); 
-                  document.getElementById('expDate').value = new Date().toISOString().substring(0, 10);
-              } else {
-                  showSnackbar(result.message, true);
-              }
-          },
-          err => {
-              showSnackbar('Gagal menambahkan Pengeluaran: ' + err, true);
-          }
-      ); 
+      const result = await callServer("addExpense", { date, category, account, amount: rawAmount, desc });
+      if (result && result.success) {
+          showSnackbar(result.message || 'Pengeluaran ditambahkan.');
+          refreshAll(); 
+          expenseForm.reset(); 
+          document.getElementById('expDate').value = new Date().toISOString().substring(0, 10);
+      } else {
+          showSnackbar(result?.message || 'Gagal menambahkan Pengeluaran', true);
+      }
   };
 
   const incomeForm = document.getElementById('incomeForm');
-  incomeForm.onsubmit = e => {
+  incomeForm.onsubmit = async e => {
       e.preventDefault();
       const date = document.getElementById('incDate').value;
       const source = document.getElementById('incSource').value;
       const account = document.getElementById('incAccount').value; 
-      const rawAmount = cleanNumber(document.getElementById('incAmount').value); 
+      const rawAmount = Number(cleanNumber(document.getElementById('incAmount').value)); 
       const desc = document.getElementById('incDesc').value;
       
-      fetchAPICall('addIncome', { 
-            date, 
-            source, 
-            account, 
-            amount: rawAmount, 
-            description: desc 
-        },
-          result => {
-              if (result.success) {
-                  showSnackbar(result.message);
-                  refreshAll(); 
-                  incomeForm.reset(); 
-                  document.getElementById('incDate').value = new Date().toISOString().substring(0, 10);
-              } else {
-                  showSnackbar(result.message, true);
-              }
-          },
-          err => {
-              showSnackbar('Gagal menambahkan Pemasukan: ' + err, true);
-          }
-      ); 
+      const result = await callServer("addIncome", { date, source, account, amount: rawAmount, desc });
+      if (result && result.success) {
+          showSnackbar(result.message || 'Pemasukan ditambahkan.');
+          refreshAll(); 
+          incomeForm.reset(); 
+          document.getElementById('incDate').value = new Date().toISOString().substring(0, 10);
+      } else {
+          showSnackbar(result?.message || 'Gagal menambahkan Pemasukan', true);
+      }
   };
   
-  // ---------------------------------------------------------------------- 
-  // PENGATURAN (CATEGORIES & ACCOUNTS) LOGIC
-  // ----------------------------------------------------------------------
-
+  // ==========================
+  // KATEGORI & AKUN
+  // ==========================
   const addCatExpForm = document.getElementById('addCategoryExpenseForm');
-  addCatExpForm.onsubmit = e => {
+  addCatExpForm.onsubmit = async e => {
       e.preventDefault();
       const name = document.getElementById('newCatExp').value;
-      fetchAPICall('addCategory', { type: 'Expense', name }, result => {
-        if (result.success) {
-            showSnackbar(result.message);
-            document.getElementById('newCatExp').value = '';
-            loadCategoriesList();
-            loadFormOptions();
-            loadBudgetByCategory(currentPeriod);
-        } else {
-            showSnackbar(result.message, true);
-        }
-      });
+      await callServer("addCategory", { type: 'Expense', name });
+      showSnackbar('Kategori Pengeluaran ditambahkan.');
+      document.getElementById('newCatExp').value = '';
+      loadCategoriesList();
+      loadFormOptions();
+      loadBudgetByCategory(currentPeriod);
   };
   
   const addCatIncForm = document.getElementById('addCategoryIncomeForm');
-  addCatIncForm.onsubmit = e => {
+  addCatIncForm.onsubmit = async e => {
       e.preventDefault();
       const name = document.getElementById('newCatInc').value;
-      fetchAPICall('addCategory', { type: 'Income', name }, result => {
-        if (result.success) {
-            showSnackbar(result.message);
-            document.getElementById('newCatInc').value = '';
-            loadCategoriesList();
-            loadFormOptions();
-        } else {
-             showSnackbar(result.message, true);
-        }
-      });
+      await callServer("addCategory", { type: 'Income', name });
+      showSnackbar('Sumber Pemasukan ditambahkan.');
+      document.getElementById('newCatInc').value = '';
+      loadCategoriesList();
+      loadFormOptions();
   };
   
   const addAccountForm = document.getElementById('addAccountForm');
-  addAccountForm.onsubmit = e => {
+  addAccountForm.onsubmit = async e => {
       e.preventDefault();
       const name = document.getElementById('newAccount').value;
-      fetchAPICall('addAccount', { name }, result => {
-        if (result.success) {
-            showSnackbar(result.message);
-            document.getElementById('newAccount').value = '';
-            loadAccountOptions();
-            loadCategoriesList(); 
-        } else {
-            showSnackbar(result.message, true);
-        }
-      }); 
+      await callServer("addAccount", { name });
+      showSnackbar('Akun baru ditambahkan.');
+      document.getElementById('newAccount').value = '';
+      loadAccountOptions();
+      loadCategoriesList(); 
   };
 
 
-  function loadFormOptions() {
-      fetchAPICall('getCategories', {}, result => {
-          const expCat = document.getElementById('expCategory');
-          expCat.innerHTML = result.categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
-          
-          const incSource = document.getElementById('incSource');
-          incSource.innerHTML = result.sources.map(src => `<option value="${src}">${src}</option>`).join('');
-      });
+  async function loadFormOptions() {
+      const result = await callServer("getCategories");
+      if (!result) return;
+      const expCat = document.getElementById('expCategory');
+      expCat.innerHTML = (result.categories || []).map(cat => `<option value="${escapeAttr(cat)}">${escapeHtml(cat)}</option>`).join('');
+      
+      const incSource = document.getElementById('incSource');
+      incSource.innerHTML = (result.sources || []).map(src => `<option value="${escapeAttr(src)}">${escapeHtml(src)}</option>`).join('');
   }
 
-  function loadAccountOptions() {
-      fetchAPICall('getAccounts', {}, accounts => {
-          const expAcc = document.getElementById('expAccount');
-          const incAcc = document.getElementById('incAccount');
-          const editAcc = document.getElementById('editAccount');
-          const options = accounts.map(a => `<option value="${a}">${a}</option>`).join('');
-          expAcc.innerHTML = options;
-          incAcc.innerHTML = options;
-          editAcc.innerHTML = options;
-      }); 
+  async function loadAccountOptions() {
+      const accounts = await callServer("getAccounts");
+      if (!accounts) return;
+      const expAcc = document.getElementById('expAccount');
+      const incAcc = document.getElementById('incAccount');
+      const editAcc = document.getElementById('editAccount');
+      const options = accounts.map(a => `<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join('');
+      expAcc.innerHTML = options;
+      incAcc.innerHTML = options;
+      editAcc.innerHTML = options;
   }
 
 
-  function loadCategoriesList() {
-      // Panggil 1: Kategori dan Sumber
-      fetchAPICall('getCategories', {}, result => {
-          const expList = document.getElementById('expenseCategoriesList');
-          expList.innerHTML = result.categories.map(cat => 
-              `<div>${cat} <button onclick="delCat('Expense', '${cat.replace(/'/g, "\\'")}')" class="delete-btn">Hapus</button></div>`
-          ).join('');
-          
-          const incList = document.getElementById('incomeSourcesList');
-          incList.innerHTML = result.sources.map(src => 
-              `<div>${src} <button onclick="delCat('Income', '${src.replace(/'/g, "\\'")}')" class="delete-btn">Hapus</button></div>`
-          ).join('');
+  async function loadCategoriesList() {
+      const result = await callServer("getCategories");
+      if (!result) return;
+      const expList = document.getElementById('expenseCategoriesList');
+      expList.innerHTML = (result.categories || []).map(cat => 
+          `<div>${escapeHtml(cat)} <button onclick="delCat('Expense', '${escapeJs(cat)}')" class="delete-btn">Hapus</button></div>`
+      ).join('');
+      
+      const incList = document.getElementById('incomeSourcesList');
+      incList.innerHTML = (result.sources || []).map(src => 
+          `<div>${escapeHtml(src)} <button onclick="delCat('Income', '${escapeJs(src)}')" class="delete-btn">Hapus</button></div>`
+      ).join('');
 
-          // Panggil 2: Akun
-          fetchAPICall('getAccounts', {}, accounts => {
-               const accList = document.getElementById('accountList');
-               accList.innerHTML = accounts.map(acc => 
-                    `<div>${acc} <button onclick="delAccount('${acc.replace(/'/g, "\\'")}')" class="delete-btn">Hapus</button></div>`
-                ).join('');
-          });
-          
-      });
+      const accounts = await callServer("getAccounts");
+      const accList = document.getElementById('accountList');
+      accList.innerHTML = (accounts || []).map(acc => 
+            `<div>${escapeHtml(acc)} <button onclick="delAccount('${escapeJs(acc)}')" class="delete-btn">Hapus</button></div>`
+        ).join('');
   }
 
-  function delCat(type, name) {
+  async function delCat(type, name) {
     if (!confirm(`Hapus ${type} ${name}? Transaksi yang sudah ada tidak akan terpengaruh.`)) return;
-    fetchAPICall('deleteCategory', { type, name }, result => {
-        if (result.success) {
-            showSnackbar(result.message);
-            loadCategoriesList();
-            loadFormOptions();
-            if (type === 'Expense') {
-                loadBudgetByCategory(currentPeriod);
-            }
-        } else {
-             showSnackbar(result.message, true);
-        }
-    });
+    await callServer("deleteCategory", { type, name });
+    showSnackbar(`${type} ${name} dihapus.`);
+    loadCategoriesList();
+    loadFormOptions();
+    if (type === 'Expense') {
+        loadBudgetByCategory(currentPeriod);
+    }
   }
   
-  function delAccount(name) {
+  async function delAccount(name) {
     if (!confirm(`Hapus Akun ${name}? Transaksi yang sudah ada tidak akan terpengaruh.`)) return;
-    fetchAPICall('deleteAccount', { name }, result => {
-        if (result.success) {
-            showSnackbar(result.message);
-            loadCategoriesList();
-            loadAccountOptions();
-        } else {
-            showSnackbar(result.message, true);
-        }
-    }); 
+    await callServer("deleteAccount", { name });
+    showSnackbar(`Akun ${name} dihapus.`);
+    loadCategoriesList();
+    loadAccountOptions();
   }
   
-  // ---------------------------------------------------------------------- 
-  // CHART LOGIC
-  // ----------------------------------------------------------------------
-
-  function drawCharts() {
+  // ==========================
+  // GRAFIK (Google Charts) - memanggil API untuk data
+  // ==========================
+  async function drawCharts() {
       
       const chartBg = getComputedStyle(document.body).getPropertyValue('--card-bg');
       const chartText = getComputedStyle(document.body).getPropertyValue('--chart-text'); 
@@ -1431,63 +1360,96 @@
       const balanceColor = getComputedStyle(document.body).getPropertyValue('--color-balance-blue');
       const chartGrid = getComputedStyle(document.body).getPropertyValue('--nav-border');
 
-      
-      // Chart 1: Monthly Trend
-      fetchAPICall('getMonthlyChartData', {}, chartData => {
+      // Monthly Trend
+      const chartData = await callServer("getMonthlyChartData", {});
+      if (Array.isArray(chartData)) {
         google.charts.load('current', {packages:['corechart']});
         google.charts.setOnLoadCallback(() => {
-          const data = google.visualization.arrayToDataTable(chartData);
-          const opt = {
-            backgroundColor: chartBg,
-            chartArea: {backgroundColor: chartBg, left: 60, right: 60},
-            legend: {position: 'bottom', textStyle: {color: chartText}},
-            colors: [incomeColor, expenseColor, balanceColor], 
-            seriesType: 'bars',
-            series: {2: {type: 'line', targetAxisIndex: 1, color: balanceColor}},
-            vAxes: {
-                0: {title: 'Jumlah (Rp)', format: 'short', textStyle: {color: chartText}, gridlines: {color: chartGrid}, titleTextStyle: {color: chartText}},
-                1: {title: 'Saldo (Rp)', format: 'short', textStyle: {color: chartText}, gridlines: {color: chartGrid}, titleTextStyle: {color: chartText}}
-            },
-            hAxis: {textStyle: {color: chartText}},
-            titleTextStyle: {color: chartText}
-          };
-          new google.visualization.ComboChart(document.getElementById('monthlyChart')).draw(data, opt);
+          try {
+            const data = google.visualization.arrayToDataTable(chartData);
+            const opt = {
+              backgroundColor: chartBg,
+              chartArea: {backgroundColor: chartBg, left: 60, right: 60},
+              legend: {position: 'bottom', textStyle: {color: chartText}},
+              colors: [incomeColor, expenseColor, balanceColor], 
+              seriesType: 'bars',
+              series: {2: {type: 'line', targetAxisIndex: 1, color: balanceColor}},
+              vAxes: {
+                  0: {title: 'Jumlah (Rp)', format: 'short', textStyle: {color: chartText}, gridlines: {color: chartGrid}, titleTextStyle: {color: chartText}},
+                  1: {title: 'Saldo (Rp)', format: 'short', textStyle: {color: chartText}, gridlines: {color: chartGrid}, titleTextStyle: {color: chartText}}
+              },
+              hAxis: {textStyle: {color: chartText}},
+              titleTextStyle: {color: chartText}
+            };
+            new google.visualization.ComboChart(document.getElementById('monthlyChart')).draw(data, opt);
+          } catch(err) {
+            console.error('Chart draw error', err);
+          }
         });
-      });
+      }
 
-    // Chart 2: Expense Pie Chart (Pengeluaran)
-    fetchAPICall('getExpenseByCategory', { period: currentPeriod }, catData => {
+      // Expense Pie
+      const catData = await callServer("getExpenseByCategory", { period: currentPeriod });
+      if (Array.isArray(catData)) {
         google.charts.load('current', {packages:['corechart']});
         google.charts.setOnLoadCallback(() => {
-          const data = google.visualization.arrayToDataTable(catData);
-          const schoolPalette = [expenseColor, balanceColor, incomeColor, '#FFD882', '#9ECF6C', '#4F4F4F', '#7A7A7A', '#C0C0C0']; 
-
-          const opt = {
-            backgroundColor: chartBg,
-            legend: {position: 'right', textStyle: {color: chartText}},
-            pieHole: 0.3,
-            colors: schoolPalette 
-          };
-          new google.visualization.PieChart(document.getElementById('pieChartExpense')).draw(data, opt);
+          try {
+            const data = google.visualization.arrayToDataTable(catData);
+            const schoolPalette = [expenseColor, balanceColor, incomeColor, '#FFD882', '#9ECF6C', '#4F4F4F', '#7A7A7A', '#C0C0C0']; 
+            const opt = {
+              backgroundColor: chartBg,
+              legend: {position: 'right', textStyle: {color: chartText}},
+              pieHole: 0.3,
+              colors: schoolPalette 
+            };
+            new google.visualization.PieChart(document.getElementById('pieChartExpense')).draw(data, opt);
+          } catch(err) {
+            console.error('Expense pie draw error', err);
+          }
         });
-    });
-    
-    // Chart 3: Income Pie Chart (Pemasukan)
-    fetchAPICall('getIncomeBySource', { period: currentPeriod }, incData => {
-          google.charts.load('current', {packages:['corechart']});
-          google.charts.setOnLoadCallback(() => {
-              const data = google.visualization.arrayToDataTable(incData);
-              const schoolPalette = [incomeColor, balanceColor, expenseColor, '#9ECF6C', '#FFD882', '#4F4F4F'];
+      }
 
-              const opt = {
-                  backgroundColor: chartBg,
-                  legend: {position: 'right', textStyle: {color: chartText}},
-                  pieHole: 0.3,
-                  colors: schoolPalette
-              };
-              new google.visualization.PieChart(document.getElementById('pieChartIncome')).draw(data, opt);
-          });
-    });
+      // Income Pie
+      const incData = await callServer("getIncomeBySource", { period: currentPeriod });
+      if (Array.isArray(incData)) {
+        google.charts.load('current', {packages:['corechart']});
+        google.charts.setOnLoadCallback(() => {
+          try {
+            const data = google.visualization.arrayToDataTable(incData);
+            const schoolPalette = [incomeColor, balanceColor, expenseColor, '#9ECF6C', '#FFD882', '#4F4F4F'];
+            const opt = {
+                backgroundColor: chartBg,
+                legend: {position: 'right', textStyle: {color: chartText}},
+                pieHole: 0.3,
+                colors: schoolPalette
+            };
+            new google.visualization.PieChart(document.getElementById('pieChartIncome')).draw(data, opt);
+          } catch(err) {
+            console.error('Income pie draw error', err);
+          }
+        });
+      }
+  }
+
+  // ==========================
+  // Helpers: escape untuk keamanan output HTML
+  // ==========================
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  function escapeAttr(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function escapeJs(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
   }
 
 </script>
