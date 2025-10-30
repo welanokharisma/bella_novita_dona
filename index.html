@@ -6,7 +6,7 @@
   <title>Budgetin</title>
   <script src="https://www.gstatic.com/charts/loader.js"></script>
   <style>
-    /* ... (STYLE DIBIARKAN SAMA SEPERTI SEBELUMNYA) ... */
+    /* ... (CSS DIBIARKAN SAMA SEPERTI SEBELUMNYA) ... */
     /* ---------------------------------------------------------------------- */
     /* 1. DEFINISI TEMA */
     /* ---------------------------------------------------------------------- */
@@ -601,7 +601,7 @@
   <div id="snackbar"></div>
 
 <script>
-  // 🚨 URL APPS SCRIPT ANDA SUDAH DITAMBAHKAN DI SINI
+  // 🚨 URL APPS SCRIPT ANDA SUDAH DITAMBAHKAN DI SINI (URL Terbaru)
   const API_URL = 'https://script.google.com/macros/s/AKfycbxIGhplhWmsNE-UJwQCWdsr53af6Sinjvk119MU8elrLbUWNl7oNuK463EGt9p36Dc79Q/exec'; 
 
   let currentPeriod = new Date().toISOString().substring(0, 7); 
@@ -655,7 +655,9 @@
           if (failureHandler) {
               failureHandler(error.message || "Request gagal.");
           } else {
-              showSnackbar(`Kesalahan koneksi atau server: ${error.message}`, true);
+              // 🚨 Ini adalah pesan yang mungkin Anda lihat: 
+              // Jika "Failed to fetch" (umumnya terkait CORS)
+              showSnackbar(`Kesalahan koneksi atau server: ${error.message}`, true); 
           }
       }
   }
